@@ -14,25 +14,33 @@ class HealthCheck {
     this.provider = this.serverless.getProvider('aws')
 
     this.hooks = {
+      'before:offline:start': this.beforeServerlessOffline.bind(this),
       'after:package:initialize': this.afterPackageInitialize.bind(this),
       'after:package:createDeploymentArtifacts': this.afterCreateDeploymentArtifacts.bind(this),
       'after:deploy:deploy': this.afterDeployFunctions.bind(this)
     }
   }
 
+  beforeServerlessOffline() {
+    this.serverless.cli.log('Running HealthCheck Locally');
+    process.env.IS_OFFLINE = true;
+    this.configPlugin()
+    return this.createHealthCheck()
+  }
+
   afterPackageInitialize() {
-    this.serverless.cli.log('HealthCheck: Tried to create')
+    this.serverless.cli.log('HealthCheck: Create Healthcheck')
     this.configPlugin()
     return this.createHealthCheck()
   }
 
   afterCreateDeploymentArtifacts() {
-    this.serverless.cli.log('HealthCheck: Tried to deplyoment artifacts')
+    this.serverless.cli.log('HealthCheck: Create artifacts')
     return this.cleanFolder()
   }
 
   afterDeployFunctions() {
-    this.serverless.cli.log('HealthCheck: Tried to deploy functions')
+    this.serverless.cli.log('HealthCheck: Deploy functions')
     this.configPlugin()
     if (this.healthcheck.precheck) {
       return this.healthCheckFunctions()
@@ -56,7 +64,14 @@ class HealthCheck {
       schedule: ['rate(5 minutes)'],
       timeout: 10,
       precheck: false,
-      endpoint: '__health'
+      endpoint: '__health',
+      format: {
+        schemaVersion: 1,
+        name: `Healthcheck system for ${this.serverless.service.service}`,
+        systemCode: `${this.serverless.service.service}`,
+        checks: []
+      }
+      
     }
 
     /** Set global custom options */
@@ -100,6 +115,12 @@ class HealthCheck {
     if (typeof this.custom.healthcheck.endpoint === 'string') {
       this.healthcheck.endpoint = this.custom.healthcheck.endpoint
     }
+
+    /** Format */
+    if (typeof this.custom.healthcheck.format === 'object') {
+      this.healthcheck.format = this.custom.healthcheck.format
+    }
+
   }
 
   getPath(file) {
@@ -148,6 +169,7 @@ class HealthCheck {
       .reduce((healthchecks, eventObject) => {
           healthchecks.push({
             params: eventObject.http.healthcheck.params,
+            method: eventObject.http.method,
             format: eventObject.http.healthcheck.format
           })
         return healthchecks
@@ -170,7 +192,7 @@ class HealthCheck {
         creationDate: new Date().toISOString(),
         awsRegion: this.serverless.service.provider.region,
         healthchecks: JSON.stringify(functionObjects),
-        outputHeader: JSON.stringify(this.custom.healthcheck.format)
+        outputHeader: JSON.stringify(this.healthcheck.format)
       }
     })
 
