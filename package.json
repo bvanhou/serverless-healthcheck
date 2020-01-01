@@ -1,7 +1,7 @@
 {
-    "name": "@financial-times/serverless-plugin-healthcheck",
-    "version": "0.0.9",
-    "description": "Check your lambdas are healthy.",
+    "name": "serverless-healthcheck",
+    "version": "0.0.1",
+    "description": "Generates a Health Check function for your Serverless HTTP events.",
     "main": "src/index.js",
     "scripts": {
         "lint": "standard src/**",
@@ -14,11 +14,11 @@
             "git add"
         ]
     },
-    "author": "Geoff Thorpe",
+    "author": "Benjamin Van Houten",
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/Financial-Times/serverless-plugin-healthcheck.git"
+        "url": "git+https://github.com/bvanhou/serverless-healthcheck.git"
     },
     "keywords": [
         "serverless plugin healthcheck lambdas",
@@ -28,9 +28,9 @@
         "healthcheck lambda"
     ],
     "bugs": {
-        "url": "https://github.com/Financial-Times/serverless-plugin-healthcheck/issues"
+        "url": "https://github.com/bvanhou/serverless-healthcheck/issues"
     },
-    "homepage": "https://github.com/Financial-Times/serverless-plugin-healthcheck#readme",
+    "homepage": "https://github.com/bvanhou/serverless-healthcheck#readme",
     "dependencies": {
         "bluebird": "^3.5.0",
         "fs-extra": "^3.0.1",
