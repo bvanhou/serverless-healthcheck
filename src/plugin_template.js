@@ -5,6 +5,7 @@ const aws = require('aws-sdk')
 aws.config.region = '#{awsRegion}'
 const lambda = new aws.Lambda()
 const functionObjects = JSON.parse('#{healthchecks}')
+
 module.exports.healthCheck = (event, context, callback) => {
   let invokes = []
   let checkResponses = []

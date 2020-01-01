@@ -6,7 +6,8 @@ const path = require('path')
 const tokenSubstitute = require('token-substitute')
 
 class HealthCheck {
-  constructor (serverless, options) {
+
+  constructor(serverless, options) {
     this.serverless = serverless
     this.options = options
     this.custom = this.serverless.service.custom
@@ -19,23 +20,26 @@ class HealthCheck {
     }
   }
 
-  afterPackageInitialize () {
+  afterPackageInitialize() {
+    this.serverless.cli.log('HealthCheck: Tried to create')
     this.configPlugin()
     return this.createHealthCheck()
   }
 
-  afterCreateDeploymentArtifacts () {
+  afterCreateDeploymentArtifacts() {
+    this.serverless.cli.log('HealthCheck: Tried to deplyoment artifacts')
     return this.cleanFolder()
   }
 
-  afterDeployFunctions () {
+  afterDeployFunctions() {
+    this.serverless.cli.log('HealthCheck: Tried to deploy functions')
     this.configPlugin()
     if (this.healthcheck.precheck) {
       return this.healthCheckFunctions()
     }
   }
 
-  configPlugin () {
+  configPlugin() {
     this.folderName = '_healthcheck'
     if (this.custom && this.custom.healthcheck && typeof this.custom.healthcheck.folderName === 'string') {
       this.folderName = this.custom.healthcheck.folderName
@@ -98,20 +102,21 @@ class HealthCheck {
     }
   }
 
-  getPath (file) {
+  getPath(file) {
     return path.join(this.serverless.config.servicePath, file)
   }
 
-  cleanFolder () {
+  cleanFolder() {
     if (!this.healthcheck.cleanFolder) {
       return Promise.resolve()
     }
     return fs.removeAsync(this.pathFolder)
   }
 
-  createHealthCheck () {
+  createHealthCheck() {
     return this.getFunctionsWithHealthChecks()
       .then((functionNames) => {
+        this.serverless.cli.log(`HealthCheck: ${functionNames}`)
         if (!functionNames.length) {
           this.serverless.cli.log('HealthCheck: no lambda to check')
           return true
@@ -125,40 +130,31 @@ class HealthCheck {
       })
   }
 
-  getFunctionsWithHealthChecks () {
+  getFunctionsWithHealthChecks() {
     const allFunctions = this.serverless.service.getAllFunctions().map((functionName) => {
       const functionObject = this.serverless.service.getFunction(functionName)
-      return {
+       return {
         name: functionObject.name,
-        stage: functionObject.healthcheck,
         checks: this.getEventsWithHealthChecks(functionName)
       }
     })
 
-    return BbPromise.filter(allFunctions, (functionInfo) => {
-      if (functionInfo.stage === true ||
-        functionInfo.stage === this.options.stage ||
-        (Array.isArray(functionInfo.stage) &&
-          functionInfo.stage.indexOf(this.options.stage) !== -1)) {
-        return functionInfo
-      }
-    })
+    return BbPromise.filter(allFunctions, (functionInfo) => functionInfo.checks.length > 0 )
   }
 
-  getEventsWithHealthChecks (functionName) {
+  getEventsWithHealthChecks(functionName) {
     return this.serverless.service.getAllEventsInFunction(functionName)
+      .filter((eventObject) => ('http' in eventObject && 'healthcheck' in eventObject.http))
       .reduce((healthchecks, eventObject) => {
-        if (eventObject.http.healthcheck) {
           healthchecks.push({
             params: eventObject.http.healthcheck.params,
             format: eventObject.http.healthcheck.format
           })
-        }
         return healthchecks
       }, [])
   }
 
-  createHealthCheckFunctionArtifact (functionObjects) {
+  createHealthCheckFunctionArtifact(functionObjects) {
     this.serverless.cli.log('HealthCheck: setting ' + functionObjects.length + ' lambdas to be checked')
 
     functionObjects.map((functionObject) => {
@@ -184,7 +180,7 @@ class HealthCheck {
 
   addHealthCheckFunctionToService () {
     /** SLS health check function */
-    this.serverless.cli.log(JSON.stringify(this.healthcheck.schedule))
+    this.serverless.cli.log(`Scheduling HealthCheck for: ${ this.healthcheck.schedule[0] }`)
     this.serverless.service.functions.healthCheckPlugin = {
       description: 'Serverless HealthCheck Plugin',
       events: [
@@ -195,14 +191,14 @@ class HealthCheck {
             private: false
           },
           schedule: {
-            rate: this.healthcheck.schedule
+            rate: this.healthcheck.schedule[0]
           }
         }
       ],
       handler: this.pathHandler,
       memorySize: this.healthcheck.memorySize,
       name: this.healthcheck.name,
-      runtime: 'nodejs6.10',
+      runtime: this.serverless.service.provider.runtime,
       package: {
         individually: true,
         exclude: ['**'],
